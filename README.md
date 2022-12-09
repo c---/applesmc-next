@@ -23,3 +23,13 @@ across power cycles and operating systems unless the SMC is reset.
 
 Setting `charge_control_full_threshold` controls when the charging LED turns
 green and is cosmetic only. Generally it doesn't need to be set.
+
+[Arch Linux AUR package](https://aur.archlinux.org/packages/applesmc-next-dkms)
+
+To build on other distributions install the `dkms` package then run something like the following:
+```
+#!/bin/sh
+TAG="$(git ls-remote --tags https://github.com/c---/applesmc-next | grep -oP 'tags/\K[0-9.]+' | tail -n1)"
+git clone --depth 1 --branch "$TAG" https://github.com/c---/applesmc-next "/usr/src/applesmc-next-$TAG"
+dkms install "applesmc-next/$TAG"
+```
