@@ -38,6 +38,7 @@
 MODULE_AUTHOR("Alexey Starikovskiy <astarikovskiy@suse.de>");
 MODULE_DESCRIPTION("Smart Battery System ACPI interface driver");
 MODULE_LICENSE("GPL");
+MODULE_VERSION("NEXT");
 
 static unsigned int cache_time = 1000;
 module_param(cache_time, uint, 0644);
