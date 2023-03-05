@@ -2,7 +2,7 @@
 /*
  *  sbs.c - ACPI Smart Battery System Driver ($Revision: 2.0 $)
  *
- *  Copyright (c) 2022 Chris Osgood <chris_github@functionalfuture.com>
+ *  Copyright (c) 2023 Chris Osgood <chris_github@functionalfuture.com>
  *  Copyright (c) 2007 Alexey Starikovskiy <astarikovskiy@suse.de>
  *  Copyright (c) 2005-2007 Vladimir Lebedev <vladimir.p.lebedev@intel.com>
  *  Copyright (c) 2005 Rich Townsend <rhdt@bartol.udel.edu>
@@ -38,7 +38,7 @@
 MODULE_AUTHOR("Alexey Starikovskiy <astarikovskiy@suse.de>");
 MODULE_DESCRIPTION("Smart Battery System ACPI interface driver");
 MODULE_LICENSE("GPL");
-MODULE_VERSION("NEXT");
+MODULE_VERSION("0.1.4-next");
 
 static unsigned int cache_time = 1000;
 module_param(cache_time, uint, 0644);
@@ -99,7 +99,7 @@ struct acpi_sbs {
 
 #define to_acpi_sbs(x) power_supply_get_drvdata(x)
 
-static int acpi_sbs_remove(struct acpi_device *device);
+static void acpi_sbs_remove(struct acpi_device *device);
 static int acpi_battery_get_state(struct acpi_battery *battery);
 
 static inline int battery_scale(int log)
@@ -500,7 +500,7 @@ static void __battery_hook_unregister(struct acpi_battery_hook *hook, int lock)
 	list_for_each_entry(sbs, &acpi_sbs_list, list) {
 		for (id = 0; id < MAX_SBS_BAT; id++) {
 			if (sbs->battery[id].bat)
-				hook->remove_battery(sbs->battery[id].bat);
+				hook->remove_battery(sbs->battery[id].bat, hook);
 		}
 	}
 	list_del(&hook->list);
@@ -528,7 +528,7 @@ void sbs_hook_register(struct acpi_battery_hook *hook)
 	list_add(&hook->list, &battery_hook_list);
 	list_for_each_entry(sbs, &acpi_sbs_list, list) {
 		for (id = 0; id < MAX_SBS_BAT; id++) {
-			if (sbs->battery[id].bat && hook->add_battery(sbs->battery[id].bat)) {
+			if (sbs->battery[id].bat && hook->add_battery(sbs->battery[id].bat, hook)) {
 				pr_err("extension failed to load: %s", hook->name);
 				__battery_hook_unregister(hook, 0);
 				goto end;
@@ -554,7 +554,7 @@ static void battery_hook_add_battery(struct acpi_sbs *sbs, int id)
 		pr_debug("%s %p %d\n", __FUNCTION__, sbs, id);
 		mutex_lock(&hook_mutex);
 		list_for_each_entry_safe(hook_node, tmp, &battery_hook_list, list) {
-			if (hook_node->add_battery(sbs->battery[id].bat)) {
+			if (hook_node->add_battery(sbs->battery[id].bat, hook_node)) {
 				pr_err("error in extension, unloading: %s",
 						hook_node->name);
 				__battery_hook_unregister(hook_node, 0);
@@ -572,7 +572,7 @@ static void battery_hook_remove_battery(struct acpi_sbs *sbs, int id)
 		pr_debug("%s %p %d\n", __FUNCTION__, sbs, id);
 		mutex_lock(&hook_mutex);
 		list_for_each_entry(hook, &battery_hook_list, list) {
-			hook->remove_battery(sbs->battery[id].bat);
+			hook->remove_battery(sbs->battery[id].bat, hook);
 		}
 		mutex_unlock(&hook_mutex);
 	}
@@ -806,16 +806,16 @@ end:
 	return result;
 }
 
-static int acpi_sbs_remove(struct acpi_device *device)
+static void acpi_sbs_remove(struct acpi_device *device)
 {
 	struct acpi_sbs *sbs;
 	int id;
 
 	if (!device)
-		return -EINVAL;
+		return;
 	sbs = acpi_driver_data(device);
 	if (!sbs)
-		return -EINVAL;
+		return;
 	mutex_lock(&sbs->lock);
 	acpi_smbus_unregister_callback(sbs->hc);
 	for (id = 0; id < MAX_SBS_BAT; ++id)
@@ -825,7 +825,6 @@ static int acpi_sbs_remove(struct acpi_device *device)
 	mutex_unlock(&sbs->lock);
 	mutex_destroy(&sbs->lock);
 	kfree(sbs);
-	return 0;
 }
 
 #ifdef CONFIG_PM_SLEEP

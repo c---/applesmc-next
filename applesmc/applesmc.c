@@ -8,7 +8,7 @@
  * Copyright (C) 2010 Henrik Rydberg <rydberg@euromail.se>
  *
  * Add charge threshold support:
- * Copyright (C) 2022 Chris Osgood <chris_github@functionalfuture.com>
+ * Copyright (C) 2023 Chris Osgood <chris_github@functionalfuture.com>
  *
  * Based on hdaps.c driver:
  * Copyright (C) 2005 Robert Love <rml@novell.com>
@@ -1279,7 +1279,7 @@ static DEVICE_ATTR_RO(charge_control_start_threshold);
 static DEVICE_ATTR_RW(charge_control_end_threshold);
 static DEVICE_ATTR_RW(charge_control_full_threshold);
 
-static int applesmc_battery_add(struct power_supply *battery)
+static int applesmc_battery_add(struct power_supply *battery, struct acpi_battery_hook* hook)
 {
 	pr_debug("Battery added: %s\n", battery->desc->name);
 
@@ -1307,7 +1307,7 @@ out:
 	return -ENODEV;
 }
 
-static int applesmc_battery_remove(struct power_supply *battery)
+static int applesmc_battery_remove(struct power_supply *battery, struct acpi_battery_hook* hook)
 {
 	pr_debug("Battery removed: %s\n", battery->desc->name);
 
@@ -1586,4 +1586,4 @@ MODULE_AUTHOR("Nicolas Boichat");
 MODULE_DESCRIPTION("Apple SMC");
 MODULE_LICENSE("GPL v2");
 MODULE_DEVICE_TABLE(dmi, applesmc_whitelist);
-MODULE_VERSION("NEXT");
+MODULE_VERSION("0.1.4-next");
