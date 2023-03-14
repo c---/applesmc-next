@@ -10,6 +10,8 @@
 
 #define pr_fmt(fmt) "ACPI: " fmt
 
+#include <linux/version.h>
+
 #include <linux/init.h>
 #include <linux/slab.h>
 #include <linux/module.h>
@@ -38,7 +40,7 @@
 MODULE_AUTHOR("Alexey Starikovskiy <astarikovskiy@suse.de>");
 MODULE_DESCRIPTION("Smart Battery System ACPI interface driver");
 MODULE_LICENSE("GPL");
-MODULE_VERSION("0.1.4-next");
+MODULE_VERSION("0.1.5-next");
 
 static unsigned int cache_time = 1000;
 module_param(cache_time, uint, 0644);
@@ -99,7 +101,11 @@ struct acpi_sbs {
 
 #define to_acpi_sbs(x) power_supply_get_drvdata(x)
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6,2,0)
 static void acpi_sbs_remove(struct acpi_device *device);
+#else
+static int acpi_sbs_remove(struct acpi_device *device);
+#endif
 static int acpi_battery_get_state(struct acpi_battery *battery);
 
 static inline int battery_scale(int log)
@@ -500,7 +506,11 @@ static void __battery_hook_unregister(struct acpi_battery_hook *hook, int lock)
 	list_for_each_entry(sbs, &acpi_sbs_list, list) {
 		for (id = 0; id < MAX_SBS_BAT; id++) {
 			if (sbs->battery[id].bat)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6,2,0)
 				hook->remove_battery(sbs->battery[id].bat, hook);
+#else
+				hook->remove_battery(sbs->battery[id].bat);
+#endif
 		}
 	}
 	list_del(&hook->list);
@@ -528,7 +538,11 @@ void sbs_hook_register(struct acpi_battery_hook *hook)
 	list_add(&hook->list, &battery_hook_list);
 	list_for_each_entry(sbs, &acpi_sbs_list, list) {
 		for (id = 0; id < MAX_SBS_BAT; id++) {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6,2,0)
 			if (sbs->battery[id].bat && hook->add_battery(sbs->battery[id].bat, hook)) {
+#else
+			if (sbs->battery[id].bat && hook->add_battery(sbs->battery[id].bat)) {
+#endif
 				pr_err("extension failed to load: %s", hook->name);
 				__battery_hook_unregister(hook, 0);
 				goto end;
@@ -554,7 +568,11 @@ static void battery_hook_add_battery(struct acpi_sbs *sbs, int id)
 		pr_debug("%s %p %d\n", __FUNCTION__, sbs, id);
 		mutex_lock(&hook_mutex);
 		list_for_each_entry_safe(hook_node, tmp, &battery_hook_list, list) {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6,2,0)
 			if (hook_node->add_battery(sbs->battery[id].bat, hook_node)) {
+#else
+			if (hook_node->add_battery(sbs->battery[id].bat)) {
+#endif
 				pr_err("error in extension, unloading: %s",
 						hook_node->name);
 				__battery_hook_unregister(hook_node, 0);
@@ -572,7 +590,11 @@ static void battery_hook_remove_battery(struct acpi_sbs *sbs, int id)
 		pr_debug("%s %p %d\n", __FUNCTION__, sbs, id);
 		mutex_lock(&hook_mutex);
 		list_for_each_entry(hook, &battery_hook_list, list) {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6,2,0)
 			hook->remove_battery(sbs->battery[id].bat, hook);
+#else
+			hook->remove_battery(sbs->battery[id].bat);
+#endif
 		}
 		mutex_unlock(&hook_mutex);
 	}
@@ -774,7 +796,11 @@ static int acpi_sbs_add(struct acpi_device *device)
 
 	mutex_init(&sbs->lock);
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6,1,0)
 	sbs->hc = acpi_driver_data(acpi_dev_parent(device));
+#else
+	sbs->hc = acpi_driver_data(device->parent);
+#endif
 	sbs->device = device;
 	strcpy(acpi_device_name(device), ACPI_SBS_DEVICE_NAME);
 	strcpy(acpi_device_class(device), ACPI_SBS_CLASS);
@@ -806,16 +832,28 @@ end:
 	return result;
 }
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6,2,0)
 static void acpi_sbs_remove(struct acpi_device *device)
+#else
+static int acpi_sbs_remove(struct acpi_device *device)
+#endif
 {
 	struct acpi_sbs *sbs;
 	int id;
 
 	if (!device)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6,2,0)
 		return;
+#else
+		return -EINVAL;
+#endif
 	sbs = acpi_driver_data(device);
 	if (!sbs)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6,2,0)
 		return;
+#else
+		return -EINVAL;
+#endif
 	mutex_lock(&sbs->lock);
 	acpi_smbus_unregister_callback(sbs->hc);
 	for (id = 0; id < MAX_SBS_BAT; ++id)
@@ -825,6 +863,11 @@ static void acpi_sbs_remove(struct acpi_device *device)
 	mutex_unlock(&sbs->lock);
 	mutex_destroy(&sbs->lock);
 	kfree(sbs);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6,2,0)
+	return;
+#else
+	return 0;
+#endif
 }
 
 #ifdef CONFIG_PM_SLEEP

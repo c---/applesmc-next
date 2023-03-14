@@ -20,6 +20,8 @@
 
 #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
 
+#include <linux/version.h>
+
 #include <linux/delay.h>
 #include <linux/platform_device.h>
 #include <linux/input.h>
@@ -1279,7 +1281,11 @@ static DEVICE_ATTR_RO(charge_control_start_threshold);
 static DEVICE_ATTR_RW(charge_control_end_threshold);
 static DEVICE_ATTR_RW(charge_control_full_threshold);
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6,2,0)
 static int applesmc_battery_add(struct power_supply *battery, struct acpi_battery_hook* hook)
+#else
+static int applesmc_battery_add(struct power_supply *battery)
+#endif
 {
 	pr_debug("Battery added: %s\n", battery->desc->name);
 
@@ -1307,7 +1313,11 @@ out:
 	return -ENODEV;
 }
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6,2,0)
 static int applesmc_battery_remove(struct power_supply *battery, struct acpi_battery_hook* hook)
+#else
+static int applesmc_battery_remove(struct power_supply *battery)
+#endif
 {
 	pr_debug("Battery removed: %s\n", battery->desc->name);
 
@@ -1586,4 +1596,4 @@ MODULE_AUTHOR("Nicolas Boichat");
 MODULE_DESCRIPTION("Apple SMC");
 MODULE_LICENSE("GPL v2");
 MODULE_DEVICE_TABLE(dmi, applesmc_whitelist);
-MODULE_VERSION("0.1.4-next");
+MODULE_VERSION("0.1.5-next");
