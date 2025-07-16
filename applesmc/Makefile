@@ -4,7 +4,7 @@ obj-m      += applesmc.o
 KVER       ?= `uname -r`
 KBASE      ?= /lib/modules/$(KVER)
 KBUILD_DIR ?= $(KBASE)/build
-EXTRA_CFLAGS := -I$(M)/sbs
+ccflags-y  := -I$(M)/sbs
 
 all:
 	make -C $(KBUILD_DIR) M=`pwd`
