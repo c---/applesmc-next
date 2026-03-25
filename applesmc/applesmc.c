@@ -1212,7 +1212,9 @@ static ssize_t applesmc_percent_show(const char *key, struct device *dev,
 	u8 val[1];
 	int ret;
 
+	mutex_lock(&smcreg.mutex);
 	ret = read_smc(APPLESMC_READ_CMD, key, val, sizeof(val));
+	mutex_unlock(&smcreg.mutex);
 	if (ret)
 		return ret;
 
@@ -1222,12 +1224,11 @@ static ssize_t applesmc_percent_show(const char *key, struct device *dev,
 static ssize_t applesmc_percent_store(const char *key, struct device *dev,
 	struct device_attribute *attr, const char *sysfsbuf, size_t count)
 {
-        u8 buf[1];
+	u8 buf[1];
 	unsigned long val;
-        int ret;
+	int ret;
 
-	/* Set a lower limit of 10%; unnecessary? */
-	if (kstrtoul(sysfsbuf, 10, &val) < 0 || val < 10 || val > 100)
+	if (kstrtoul(sysfsbuf, 10, &val) < 0 || val < 1 || val > 100)
 		return -EINVAL;
 
 	buf[0] = (u8)val;
@@ -1245,8 +1246,9 @@ static ssize_t applesmc_percent_store(const char *key, struct device *dev,
 static ssize_t charge_control_start_threshold_show(struct device *dev,
 				struct device_attribute *attr, char *sysfsbuf)
 {
-	/* return applesmc_percent_show(CHARGE_START_KEY,
-					dev, attr, sysfsbuf); */
+	/* Start threshold is not supported by the SMC firmware; return 0
+	 * (disabled) as expected by TLP and other userspace tools.
+	 */
 	return sysfs_emit(sysfsbuf, "0\n");
 }
 
@@ -1287,18 +1289,23 @@ static int applesmc_battery_add(struct power_supply *battery, struct acpi_batter
 static int applesmc_battery_add(struct power_supply *battery)
 #endif
 {
+	int ret;
+
 	pr_debug("Battery added: %s\n", battery->desc->name);
 
-	if (device_create_file(&battery->dev,
-	    &dev_attr_charge_control_start_threshold))
+	ret = device_create_file(&battery->dev,
+		&dev_attr_charge_control_start_threshold);
+	if (ret)
 		goto out;
 
-	if (device_create_file(&battery->dev,
-	    &dev_attr_charge_control_end_threshold))
+	ret = device_create_file(&battery->dev,
+		&dev_attr_charge_control_end_threshold);
+	if (ret)
 		goto out_start;
 
-	if (device_create_file(&battery->dev,
-	    &dev_attr_charge_control_full_threshold))
+	ret = device_create_file(&battery->dev,
+		&dev_attr_charge_control_full_threshold);
+	if (ret)
 		goto out_end;
 
 	return 0;
@@ -1310,7 +1317,7 @@ out_start:
 	device_remove_file(&battery->dev,
 			&dev_attr_charge_control_start_threshold);
 out:
-	return -ENODEV;
+	return ret;
 }
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6,2,0)
