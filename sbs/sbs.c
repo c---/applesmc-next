@@ -499,7 +499,7 @@ static void __battery_hook_unregister(struct acpi_battery_hook *hook, int lock)
 	int id;
 	struct acpi_sbs *sbs;
 
-	pr_debug("%s %p\n", __FUNCTION__, hook);
+	pr_debug("%s %p\n", __func__, hook);
 
 	if (lock)
 		mutex_lock(&hook_mutex);
@@ -521,7 +521,7 @@ static void __battery_hook_unregister(struct acpi_battery_hook *hook, int lock)
 
 void sbs_hook_unregister(struct acpi_battery_hook *hook)
 {
-	pr_debug("%s %p\n", __FUNCTION__, hook);
+	pr_debug("%s %p\n", __func__, hook);
 	__battery_hook_unregister(hook, 1);
 }
 EXPORT_SYMBOL_GPL(sbs_hook_unregister);
@@ -531,7 +531,7 @@ void sbs_hook_register(struct acpi_battery_hook *hook)
 	int id;
 	struct acpi_sbs *sbs;
 
-	pr_debug("%s %p\n", __FUNCTION__, hook);
+	pr_debug("%s %p\n", __func__, hook);
 
 	mutex_lock(&hook_mutex);
 	INIT_LIST_HEAD(&hook->list);
@@ -565,7 +565,7 @@ static void battery_hook_add_battery(struct acpi_sbs *sbs, int id)
 	struct acpi_battery_hook *hook_node, *tmp;
 
 	if (sbs->battery[id].bat) {
-		pr_debug("%s %p %d\n", __FUNCTION__, sbs, id);
+		pr_debug("%s %p %d\n", __func__, sbs, id);
 		mutex_lock(&hook_mutex);
 		list_for_each_entry_safe(hook_node, tmp, &battery_hook_list, list) {
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6,2,0)
@@ -587,7 +587,7 @@ static void battery_hook_remove_battery(struct acpi_sbs *sbs, int id)
 	struct acpi_battery_hook *hook;
 
 	if (sbs->battery[id].bat) {
-		pr_debug("%s %p %d\n", __FUNCTION__, sbs, id);
+		pr_debug("%s %p %d\n", __func__, sbs, id);
 		mutex_lock(&hook_mutex);
 		list_for_each_entry(hook, &battery_hook_list, list) {
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6,2,0)
@@ -602,7 +602,7 @@ static void battery_hook_remove_battery(struct acpi_sbs *sbs, int id)
 
 static void battery_hook_add_sbs(struct acpi_sbs *sbs)
 {
-	pr_debug("%s %p\n", __FUNCTION__, sbs);
+	pr_debug("%s %p\n", __func__, sbs);
 	mutex_lock(&hook_mutex);
 	INIT_LIST_HEAD(&sbs->list);
 	list_add(&sbs->list, &acpi_sbs_list);
@@ -611,7 +611,7 @@ static void battery_hook_add_sbs(struct acpi_sbs *sbs)
 
 static void battery_hook_remove_sbs(struct acpi_sbs *sbs)
 {
-	pr_debug("%s %p\n", __FUNCTION__, sbs);
+	pr_debug("%s %p\n", __func__, sbs);
 	mutex_lock(&hook_mutex);
 	list_del(&sbs->list);
 	mutex_unlock(&hook_mutex);
@@ -622,7 +622,7 @@ static void __exit battery_hook_exit(void)
 	struct acpi_battery_hook *hook;
 	struct acpi_battery_hook *ptr;
 
-	pr_debug("%s\n", __FUNCTION__);
+	pr_debug("%s\n", __func__);
 
 	list_for_each_entry_safe(hook, ptr, &battery_hook_list, list) {
 		__battery_hook_unregister(hook, 1);
