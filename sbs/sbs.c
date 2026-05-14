@@ -797,7 +797,21 @@ static int acpi_sbs_add(struct acpi_device *device)
 	mutex_init(&sbs->lock);
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6,1,0)
-	sbs->hc = acpi_driver_data(acpi_dev_parent(device));
+	{
+		/*
+		 * Modern Ubuntu/upstream kernels convert sbshc to a
+		 * platform_driver, so the host-controller pointer lives
+		 * in the parent's platform device drvdata, not its ACPI
+		 * driver_data. Try the platform path first, fall back to
+		 * the legacy ACPI driver_data path.
+		 */
+		struct acpi_device *parent_adev = acpi_dev_parent(device);
+		struct device *parent_pdev = parent_adev ?
+				acpi_get_first_physical_node(parent_adev) : NULL;
+		sbs->hc = parent_pdev ? dev_get_drvdata(parent_pdev) : NULL;
+		if (!sbs->hc && parent_adev)
+			sbs->hc = acpi_driver_data(parent_adev);
+	}
 #else
 	sbs->hc = acpi_driver_data(device->parent);
 #endif
@@ -805,6 +819,11 @@ static int acpi_sbs_add(struct acpi_device *device)
 	strcpy(acpi_device_name(device), ACPI_SBS_DEVICE_NAME);
 	strcpy(acpi_device_class(device), ACPI_SBS_CLASS);
 	device->driver_data = sbs;
+
+	if (!sbs->hc) {
+		result = -EPROBE_DEFER;
+		goto end;
+	}
 
 	result = acpi_charger_add(sbs);
 	if (result && result != -ENODEV)
@@ -855,7 +874,8 @@ static int acpi_sbs_remove(struct acpi_device *device)
 		return -EINVAL;
 #endif
 	mutex_lock(&sbs->lock);
-	acpi_smbus_unregister_callback(sbs->hc);
+	if (sbs->hc)
+		acpi_smbus_unregister_callback(sbs->hc);
 	for (id = 0; id < MAX_SBS_BAT; ++id)
 		acpi_battery_remove(sbs, id);
 	acpi_charger_remove(sbs);
