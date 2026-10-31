@@ -70,12 +70,13 @@ Tested on one MacBookPro12,1 (Europa), Kali Linux Rolling 2026.3,
 | Original adapter: one short deep S3 cycle | Modules and 80% limit retained; Wi-Fi and SSH returned with a separate Wi-Fi workaround |
 | Reviewed adapter: deployment and charging cutoff | TLP wrote 79% then restored 80%, both read back correctly; charging at ~2.75 A stopped at reported 80% (TLP 79.8%), 0 mA / Full, with AC still connected |
 | Reviewed adapter: one reboot | Wi-Fi/key SSH returned after ~117 seconds; adapter/modules loaded, Wi-Fi D3cold rule applied, 80% retained and AC charging stopped (0 mA / Full) |
-| Reviewed adapter: subsequent suspend attempt on AC | One 75-second RTC wake was armed, but SSH/Wi-Fi reachability did not return within four minutes; actual wake state and post-wake threshold are awaiting local inspection |
+| Reviewed adapter: S3 on AC | Logs confirm normal S3 resume after ~72 seconds, followed by persistent brcmfmac command timeouts/scan failures and lost Wi-Fi/SSH until an owner reboot. The workaround was active before sleep; post-wake threshold was not sampled. After reboot: 80%, 0 mA / Full |
 
 The original-adapter rows predate the review fixes to detection/error reporting
 and its tests. The reviewed adapter was then deployed separately, retaining the
 existing driver fixes, TLP configuration and rollback state. Its reboot passed;
-the subsequent suspend attempt remains unverified pending local recovery. Both
+the following S3 cycle resumed the OS but failed Wi-Fi despite the pre-suspend
+D3cold workaround. That workaround is insufficient for reliable Wi-Fi resume. Both
 deployments used the host-controller
 fix from [PR #15](https://github.com/c---/applesmc-next/pull/15) and the read-lock
 and sysfs-error-propagation subset of
