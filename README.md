@@ -65,14 +65,16 @@ Tested on one MacBookPro12,1 (Europa), Kali Linux Rolling 2026.3,
 | Check | Result |
 | --- | --- |
 | Offline adapter checks after review fixes | 53 passed: deterministic hardware detection/fallback, write-attempt checks for stop-only operation, limits/defaults, read/write failures, disabled configuration and BAT1 selection |
-| Live TLP detection and charging | Adapter selected; at 89% on AC, restoring the saved 100% limit resumed charging at 1536 mA; applying 80% stopped charging at 0 mA |
-| One reboot | Custom modules and adapter loaded automatically; 80% limit retained, charging remained stopped at 89% on AC |
-| One short deep S3 cycle | Modules and 80% limit retained; Wi-Fi and SSH returned with a separate Wi-Fi workaround |
+| Original adapter: live TLP detection and charging | Adapter selected; at 89% on AC, restoring the saved 100% limit resumed charging at 1536 mA; applying 80% stopped charging at 0 mA |
+| Original adapter: one reboot | Custom modules and adapter loaded automatically; 80% limit retained, charging remained stopped at 89% on AC |
+| Original adapter: one short deep S3 cycle | Modules and 80% limit retained; Wi-Fi and SSH returned with a separate Wi-Fi workaround |
+| Reviewed adapter: deployment and charging cutoff | TLP wrote 79% then restored 80%, both read back correctly; charging at ~2.75 A stopped at reported 80% (TLP 79.8%), 0 mA / Full, with AC still connected |
 
-The hardware results above used the original adapter before the review fixes
-to detection/error reporting and its tests. The revised adapter has been tested
-offline, and has not been installed on Europa. That original combined deployment
-contained the host-controller fix from [PR #15](https://github.com/c---/applesmc-next/pull/15) and the read-lock
+The original-adapter rows predate the review fixes to detection/error reporting
+and its tests. The reviewed adapter was then deployed separately, retaining the
+existing driver fixes, TLP configuration and rollback state. It has not been
+retested across reboot or suspend. Both deployments used the host-controller
+fix from [PR #15](https://github.com/c---/applesmc-next/pull/15) and the read-lock
 and sysfs-error-propagation subset of
 [PR #12](https://github.com/c---/applesmc-next/pull/12). Those driver changes and
 local DKMS packaging adjustments are separate from this adapter. This does not
