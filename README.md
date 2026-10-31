@@ -2,9 +2,10 @@
 Patches to the Linux kernel that allow setting battery charge thresholds on
 Intel Apple devices.
 
-This includes a [TLP](https://linrunner.de/en/tlp/tlp.html) script for use with
-that system. The file should be placed at `/usr/share/tlp/bat.d/45-apple`.
-Otherwise the interface can be accessed directly via sysfs:
+This includes battery plugins for [TLP](https://linrunner.de/en/tlp/tlp.html).
+For TLP 1.10, see the adapter instructions below. The legacy `45-apple` plugin
+targets older TLP releases and is installed at `/usr/share/tlp/bat.d/45-apple`.
+The interface can also be accessed directly via sysfs:
 ```
 /sys/class/power_supply/BAT0/charge_control_end_threshold
 /sys/class/power_supply/BAT0/charge_control_full_threshold
@@ -28,6 +29,61 @@ Note that for `charge_control_full_threshold` to work it needs to be set to a
 value less than than the end threshold because the battery will tend to float
 slightly under the maximum. Subtract at least 2% or more from the end
 threshold.
+
+### TLP 1.10 adapter
+
+With the applesmc-next modules loaded and the end-threshold sysfs attribute
+available, install the adapter from this checkout:
+
+```sh
+sudo install -m 0644 tlp/62-applesmc-next /usr/share/tlp/bat.d/62-applesmc-next
+```
+
+If the legacy `45-apple` plugin was installed previously, move it out of
+`/usr/share/tlp/bat.d/` first so it cannot take precedence. Configure, for example,
+`STOP_CHARGE_THRESH_BAT0=80` in `/etc/tlp.conf`, then run `sudo tlp start` and
+check `sudo tlp-stat -b` for `Plugin: applesmc` and the stop threshold.
+
+The adapter only claims Intel Apple hardware with the readable
+`charge_control_end_threshold` attribute; otherwise TLP can select its generic
+plugin. It accepts stop thresholds **10..100**, matching the current driver.
+`START_CHARGE_THRESH_BAT0` is ignored and the placeholder start attribute is
+never written. Force discharge and a configurable start threshold are unsupported.
+The adapter does not change the full/LED threshold.
+
+Run the offline checks with `sh tlp/test-62-applesmc-next.sh`. They use simulated
+sysfs and helper functions without touching real hardware.
+
+#### Validation and limits
+
+Tested on one MacBookPro12,1 (Europa), Kali Linux Rolling 2026.3,
+`7.1.5+kali-amd64`, TLP `1.10.2-2`:
+
+| Check | Result |
+| --- | --- |
+| Offline adapter checks | 21 passed: stop-only operation, invalid-value rejection, configured stop application, write failure and no-battery handling |
+| Live TLP detection and charging | Adapter selected; at 89% on AC, restoring the saved 100% limit resumed charging at 1536 mA; applying 80% stopped charging at 0 mA |
+| One reboot | Custom modules and adapter loaded automatically; 80% limit retained, charging remained stopped at 89% on AC |
+| One short deep S3 cycle | Modules and 80% limit retained; Wi-Fi and SSH returned with a separate Wi-Fi workaround |
+
+These hardware results used a combined deployment containing the host-controller
+fix from [PR #15](https://github.com/c---/applesmc-next/pull/15) and the read-lock
+and sysfs-error-propagation subset of
+[PR #12](https://github.com/c---/applesmc-next/pull/12). Those driver changes and
+local DKMS packaging adjustments are separate from this adapter. This does not
+establish that the unpatched drivers work on that kernel.
+
+The S3 retest used a host-specific `d3cold_allowed=0` setting on the Broadcom
+BCM43602 Wi-Fi controller after earlier resume attempts lost Wi-Fi. That workaround
+is separate from applesmc-next. The retest was on battery, so it verified threshold
+retention without re-exercising charging cutoff. Repeated/long sleep cycles, other
+machines, kernels and TLP versions have not been tested.
+
+To remove the adapter, first restore the recorded original stop threshold while
+the driver still exposes it, verify readback, remove the installed adapter and
+undo its TLP configuration. Removing the plugin alone does not reset the SMC's
+persistent limit. Retain the original module/configuration backups for any driver
+rollback.
 
 [Arch Linux AUR package](https://aur.archlinux.org/packages/applesmc-next-dkms)
 
