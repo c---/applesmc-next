@@ -15,6 +15,10 @@
 
 readonly BATDRV_APPLESMC_NEXT_DEV=/sys/devices/platform/applesmc.768
 
+batdrv_is_applesmc_next () {
+    [ -d "$BATDRV_APPLESMC_NEXT_DEV" ]
+}
+
 batdrv_init () {
     # rc: 0=matching hardware detected/1=not detected/2=no batteries detected
     _batdrv_plugin="applesmc"
@@ -24,7 +28,7 @@ batdrv_init () {
         [ "$X_BAT_PLUGIN_SIMULATE" = "$_batdrv_plugin" ] || return 1
     elif wordinlist "$_batdrv_plugin" "$X_BAT_PLUGIN_DENYLIST"; then
         return 1
-    elif [ ! -d "$BATDRV_APPLESMC_NEXT_DEV" ]; then
+    elif ! batdrv_is_applesmc_next; then
         echo_debug "bat" "batdrv_init.${_batdrv_plugin}.no_match"
         return 1
     fi
@@ -40,15 +44,18 @@ batdrv_init () {
     _bt_def_start=0
     _bt_def_stop=100
 
-    local bd
+    local bd found_threshold=0
     for bd in "$ACPIBATDIR"/BAT[01]; do
         [ "$(read_sysf "$bd/present")" = "1" ] || continue
         _batteries="${_batteries}${_batteries:+ }${bd##/*/}"
         [ -n "$_bn_stop" ] && continue
+        [ -f "$bd/charge_control_end_threshold" ] || continue
+        found_threshold=1
         if [ "$NATACPI_ENABLE" = "0" ]; then
             _natacpi=32
-        elif readable_sysf "$bd/charge_control_end_threshold"; then
-            # end threshold provided by applesmc-next via the sbs hook
+        else
+            # Attribute presence identifies the API. A failed SMC read must
+            # stay visible through batdrv_read_threshold, not trigger fallback.
             _natacpi=0
             _bm_thresh="natacpi"
             _bn_stop="charge_control_end_threshold"
@@ -59,7 +66,7 @@ batdrv_init () {
     # step aside so the generic plugin reports the battery honestly
     if [ -z "$_batteries" ]; then
         return 2
-    elif [ "$_bm_thresh" != "natacpi" ] && [ -z "$X_BAT_PLUGIN_SIMULATE" ]; then
+    elif [ "$found_threshold" != "1" ] && [ -z "$X_BAT_PLUGIN_SIMULATE" ]; then
         echo_debug "bat" "batdrv_init.${_batdrv_plugin}.no_end_threshold"
         return 1
     fi
@@ -111,7 +118,7 @@ batdrv_read_threshold () {
         return 255
     fi
     if ! out=$(read_sysf "$_bf_stop") || [ "$X_THRESH_SIMULATE_READERR" = "1" ]; then
-        [ "$2" = "1" ] && printf "(not available)"
+        [ "$2" = "1" ] && printf "(read error)"
         return 4
     fi
     printf "%s" "$out"
@@ -234,12 +241,14 @@ batdrv_show_battery_data () {
     case $_natacpi in
         0)   printf "* natacpi (%s) = active (stop charge threshold)\n" "$_batdrv_kmod" ;;
         32)  printf "* natacpi (%s) = inactive (disabled by configuration)\n" "$_batdrv_kmod" ;;
-        *)   printf "* natacpi (%s) = inactive (applesmc-next not loaded)\n" "$_batdrv_kmod" ;;
+        *)   printf "* natacpi (%s) = inactive (end-threshold attribute unavailable)\n" "$_batdrv_kmod" ;;
     esac
     if [ "$_bm_thresh" != "none" ]; then
         printf "Parameter value ranges:\n"
-        printf "* START_CHARGE_THRESH_BAT0:  ignored (not supported by firmware)\n"
-        printf "* STOP_CHARGE_THRESH_BAT0:   10..100(default)\n"
+        for bat in $_batteries; do
+            printf "* START_CHARGE_THRESH_%s:  ignored (not supported by firmware)\n" "$bat"
+            printf "* STOP_CHARGE_THRESH_%s:   10..100(default)\n" "$bat"
+        done
     fi
     printf "\n"
 

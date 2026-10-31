@@ -44,9 +44,12 @@ If the legacy `45-apple` plugin was installed previously, move it out of
 `STOP_CHARGE_THRESH_BAT0=80` in `/etc/tlp.conf`, then run `sudo tlp start` and
 check `sudo tlp-stat -b` for `Plugin: applesmc` and the stop threshold.
 
-The adapter only claims Intel Apple hardware with the readable
-`charge_control_end_threshold` attribute; otherwise TLP can select its generic
-plugin. It accepts stop thresholds **10..100**, matching the current driver.
+The adapter claims Intel Apple hardware when the
+`charge_control_end_threshold` attribute exists; otherwise TLP can select its
+generic plugin. An existing attribute with a failed SMC read keeps this adapter
+selected so TLP reports a read error and skips the write. `NATACPI_ENABLE=0`
+keeps threshold control disabled. The adapter accepts stop thresholds **10..100**,
+matching the current driver.
 `START_CHARGE_THRESH_BAT0` is ignored and the placeholder start attribute is
 never written. Force discharge and a configurable start threshold are unsupported.
 The adapter does not change the full/LED threshold.
@@ -61,13 +64,15 @@ Tested on one MacBookPro12,1 (Europa), Kali Linux Rolling 2026.3,
 
 | Check | Result |
 | --- | --- |
-| Offline adapter checks | 21 passed: stop-only operation, invalid-value rejection, configured stop application, write failure and no-battery handling |
+| Offline adapter checks after review fixes | 53 passed: deterministic hardware detection/fallback, write-attempt checks for stop-only operation, limits/defaults, read/write failures, disabled configuration and BAT1 selection |
 | Live TLP detection and charging | Adapter selected; at 89% on AC, restoring the saved 100% limit resumed charging at 1536 mA; applying 80% stopped charging at 0 mA |
 | One reboot | Custom modules and adapter loaded automatically; 80% limit retained, charging remained stopped at 89% on AC |
 | One short deep S3 cycle | Modules and 80% limit retained; Wi-Fi and SSH returned with a separate Wi-Fi workaround |
 
-These hardware results used a combined deployment containing the host-controller
-fix from [PR #15](https://github.com/c---/applesmc-next/pull/15) and the read-lock
+The hardware results above used the original adapter before the review fixes
+to detection/error reporting and its tests. The revised adapter has been tested
+offline, and has not been installed on Europa. That original combined deployment
+contained the host-controller fix from [PR #15](https://github.com/c---/applesmc-next/pull/15) and the read-lock
 and sysfs-error-propagation subset of
 [PR #12](https://github.com/c---/applesmc-next/pull/12). Those driver changes and
 local DKMS packaging adjustments are separate from this adapter. This does not
