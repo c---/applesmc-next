@@ -71,13 +71,16 @@ Tested on one MacBookPro12,1 (Europa), Kali Linux Rolling 2026.3,
 | Reviewed adapter: deployment and charging cutoff | TLP wrote 79% then restored 80%, both read back correctly; charging at ~2.75 A stopped at reported 80% (TLP 79.8%), 0 mA / Full, with AC still connected |
 | Reviewed adapter: one reboot | Wi-Fi/key SSH returned after ~117 seconds; adapter/modules loaded, Wi-Fi D3cold rule applied, 80% retained and AC charging stopped (0 mA / Full) |
 | Reviewed adapter: S3 on AC | Logs confirm normal S3 resume after ~72 seconds, followed by persistent brcmfmac command timeouts/scan failures and lost Wi-Fi/SSH until an owner reboot. The workaround was active before sleep; post-wake threshold was not sampled. After reboot: 80%, 0 mA / Full |
+| Reviewed adapter with a separate combined Wi-Fi workaround | Two further AC S3 cycles (~87 s each), separated by a reboot, restored Wi-Fi/SSH and gateway traffic without Broadcom timeout/PCI errors; 80% and 0 mA / Full retained on AC |
 
 The original-adapter rows predate the review fixes to detection/error reporting
 and its tests. The reviewed adapter was then deployed separately, retaining the
 existing driver fixes, TLP configuration and rollback state. Its reboot passed;
 the following S3 cycle resumed the OS but failed Wi-Fi despite the pre-suspend
-D3cold workaround. That workaround is insufficient for reliable Wi-Fi resume. Both
-deployments used the host-controller
+D3cold workaround alone. A later host-specific serial sleep helper combined
+that guard with unloading/reloading brcmfmac_wcc/brcmfmac for fresh firmware
+initialization; two short AC cycles and reboot persistence passed. That Wi-Fi
+helper is separate from this contribution. Both deployments used the host-controller
 fix from [PR #15](https://github.com/c---/applesmc-next/pull/15) and the read-lock
 and sysfs-error-propagation subset of
 [PR #12](https://github.com/c---/applesmc-next/pull/12). Those driver changes and
@@ -87,8 +90,9 @@ establish that the unpatched drivers work on that kernel.
 The S3 retest used a host-specific `d3cold_allowed=0` setting on the Broadcom
 BCM43602 Wi-Fi controller after earlier resume attempts lost Wi-Fi. That workaround
 is separate from applesmc-next. The retest was on battery, so it verified threshold
-retention without re-exercising charging cutoff. Repeated/long sleep cycles, other
-machines, kernels and TLP versions have not been tested.
+retention without re-exercising charging cutoff. Only the recorded short cycles
+were exercised; extended repetition, long sleeps, other machines, kernels and
+TLP versions have not been tested.
 
 To remove the adapter, first restore the recorded original stop threshold while
 the driver still exposes it, verify readback, remove the installed adapter and
